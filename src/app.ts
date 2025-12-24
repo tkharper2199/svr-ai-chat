@@ -70,16 +70,18 @@ process.on('SIGTERM', () => {
   process.exit(0);
 });
 
-// Start server
-const server = app.listen(PORT, () => {
-  console.log('='.repeat(50));
-  console.log(`🚀 Express.js + TypeScript Server Started`);
-  console.log(`📡 Server is running on http://localhost:${PORT}`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`⏰ Time API: http://localhost:${PORT}/api/time`);
-  console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`📦 Node.js version: ${process.version}`);
-  console.log('='.repeat(50));
-});
+// Start server only if not in test environment
+if (process.env.NODE_ENV !== 'test') {
+  const server = app.listen(PORT, () => {
+    console.log('='.repeat(50));
+    console.log(`🚀 Express.js + TypeScript Server Started`);
+    console.log(`📡 Server is running on http://localhost:${PORT}`);
+    console.log(`📊 Health check: http://localhost:${PORT}/health`);
+    console.log(`⏰ Time API: http://localhost:${PORT}/api/time`);
+    console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`📦 Node.js version: ${process.version}`);
+    console.log('='.repeat(50));
+  });
+}
 
 export default app;
