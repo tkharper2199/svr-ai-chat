@@ -13,7 +13,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// Routes
+// TODO: add routes for chat box.
 app.get('/', (req: Request, res: Response) => {
   res.json({
     message: 'Hello World! Express.js + TypeScript Server is running!',
@@ -23,6 +23,7 @@ app.get('/', (req: Request, res: Response) => {
   });
 });
 
+// Health check endpoint
 app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({
     status: 'OK',
