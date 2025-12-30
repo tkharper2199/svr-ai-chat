@@ -1,7 +1,10 @@
 import express, { Request, Response, Application, NextFunction } from 'express';
-import { runAgent } from './agent';
+import { createServer } from 'http';
+import { WebSocketManager } from './websocket';
 
 const app: Application = express();
+const server = createServer(app);
+let wsManager: WebSocketManager | null = null;
 const PORT = process.env.PORT || 3000;
 
 // Middleware
@@ -12,21 +15,6 @@ app.use(express.urlencoded({ extended: true }));
 app.use((req: Request, res: Response, next: NextFunction) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
-});
-
-// Route to invoke the AI agent
-app.post('/chat', async (req: Request, res: Response) => {
-  const { input, userId, threadId } = req.body;
-  if (!input || !userId || !threadId) {
-    return res.status(400).json({ error: 'Missing required fields.' });
-  }
-  try {
-    const response = await runAgent(input, userId, threadId);
-    res.json(response);
-  } catch (error) {
-    console.error('Error invoking agent:', error);
-    res.status(500).json({ error: 'Failed to invoke agent' });
-  }
 });
 
 // Health check endpoint
@@ -69,26 +57,35 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 // Graceful shutdown handling
 process.on('SIGINT', () => {
   console.log('\\n🔴 Server shutting down gracefully...');
+  if (wsManager) {
+    wsManager.shutdown();
+  }
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
   console.log('\\n🔴 Server shutting down gracefully...');
+  if (wsManager) {
+    wsManager.shutdown();
+  }
   process.exit(0);
 });
 
 // Start server only if not in test environment
 if (process.env.NODE_ENV !== 'test') {
-  const server = app.listen(PORT, () => {
+  server.listen(PORT, () => {
+    // Initialize WebSocket server
+    wsManager = new WebSocketManager(server);
+    
     console.log('='.repeat(50));
     console.log(`🚀 Express.js + TypeScript Server Started`);
     console.log(`📡 Server is running on http://localhost:${PORT}`);
+    console.log(`🔌 WebSocket endpoint: ws://localhost:${PORT}/ws`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
-    console.log(`⏰ Time API: http://localhost:${PORT}/api/time`);
     console.log(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`📦 Node.js version: ${process.version}`);
     console.log('='.repeat(50));
   });
 }
 
-export default app;
+export { app, server, wsManager };

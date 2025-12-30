@@ -5,7 +5,8 @@ A modern, type-safe Express.js server built with TypeScript.
 ## Features
 
 - 🚀 Express.js with TypeScript
-- 📦 Hot reload development with Nodemon
+- � WebSocket support for real-time communication
+- �📦 Hot reload development with Nodemon
 - 🔧 Build system with TypeScript compiler
 - 📊 Built-in health check endpoint
 - ⚡ Fast development setup
@@ -48,6 +49,33 @@ The server includes:
 - Request logging
 - Error handling
 - Graceful shutdown
+- **WebSocket support** - Real-time bidirectional communication
+
+### WebSocket Endpoints
+
+The server provides a WebSocket endpoint at `ws://localhost:3000/ws` for real-time communication.
+
+See [WEBSOCKET_API.md](WEBSOCKET_API.md) for complete WebSocket API documentation.
+
+#### Quick WebSocket Test
+
+1. Start the server:
+   ```bash
+   npm run dev
+   ```
+
+2. Open `websocket-client.html` in your browser, or use the Node.js test client:
+   ```bash
+   node test-websocket-client.js
+   ```
+
+#### WebSocket Message Types
+
+- **auth** - Authenticate with userId and threadId
+- **chat** - Send chat messages to the AI agent
+- **ping** - Check connection status
+
+See the full documentation in [WEBSOCKET_API.md](WEBSOCKET_API.md) for detailed message formats and examples.
 
 ## Testing
 
