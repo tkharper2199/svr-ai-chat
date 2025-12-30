@@ -1,6 +1,6 @@
-import { WebSocket, WebSocketServer } from 'ws';
-import { Server } from 'http';
-import { runAgent } from './agent';
+import { WebSocket, WebSocketServer } from "ws";
+import { Server } from "http";
+import { runAgent } from "./agent";
 
 interface WebSocketClient extends WebSocket {
   userId?: string;
@@ -9,18 +9,18 @@ interface WebSocketClient extends WebSocket {
 }
 
 interface ChatMessage {
-  type: 'chat';
+  type: "chat";
   input: string;
   userId: string;
   threadId: string;
 }
 
 interface PingMessage {
-  type: 'ping';
+  type: "ping";
 }
 
 interface AuthMessage {
-  type: 'auth';
+  type: "auth";
   userId: string;
   threadId: string;
 }
@@ -33,110 +33,131 @@ export class WebSocketManager {
   private pingInterval: NodeJS.Timeout | null = null;
 
   constructor(server: Server) {
-    this.wss = new WebSocketServer({ server, path: '/ws' });
+    this.wss = new WebSocketServer({ server, path: "/ws" });
     this.setupWebSocketServer();
     this.startHeartbeat();
   }
 
   private setupWebSocketServer(): void {
-    this.wss.on('connection', (ws: WebSocketClient) => {
-      console.log('🔌 New WebSocket connection established');
+    this.wss.on("connection", (ws: WebSocketClient, incoming) => {
+      // TODO: Authentication logic here (using incoming param for headers/cookies)
+      // support mock mode for this - might be all we do for starters.
+
+      console.log("🔌 New WebSocket connection established");
       ws.isAlive = true;
       this.clients.add(ws);
 
       // Send welcome message
       this.sendMessage(ws, {
-        type: 'connected',
-        message: 'Connected to AppServer WebSocket',
-        timestamp: new Date().toISOString()
+        type: "connected",
+        message: "Connected to AppServer WebSocket",
+        timestamp: new Date().toISOString(),
       });
 
       // Handle pong responses for heartbeat
-      ws.on('pong', () => {
-        console.log('🏓 Received pong from client');
+      ws.on("pong", () => {
         ws.isAlive = true;
       });
 
       // Handle incoming messages
-      ws.on('message', async (data: Buffer) => {
+      ws.on("message", async (data: Buffer) => {
         try {
           ws.isAlive = true;
           const message: ClientMessage = JSON.parse(data.toString());
           await this.handleMessage(ws, message);
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-          this.sendError(ws, 'Invalid message format');
+          console.error("Error parsing WebSocket message:", error);
+          this.sendError(ws, "Invalid message format");
         }
       });
 
       // Handle client disconnect
-      ws.on('close', () => {
-        console.log('🔌 WebSocket connection closed');
+      ws.on("close", () => {
+        console.log("🔌 WebSocket connection closed");
         this.clients.delete(ws);
       });
 
       // Handle errors
-      ws.on('error', (error) => {
-        console.error('WebSocket error:', error);
+      ws.on("error", (error) => {
+        console.error("WebSocket error:", error);
         this.clients.delete(ws);
       });
     });
 
-    console.log('✅ WebSocket server initialized on /ws');
+    console.log("✅ WebSocket server initialized on /ws");
   }
 
-  private async handleMessage(ws: WebSocketClient, message: ClientMessage): Promise<void> {
+  private async handleMessage(
+    ws: WebSocketClient,
+    message: ClientMessage
+  ): Promise<void> {
     switch (message.type) {
-      case 'auth':
+      case "auth":
+        // TODO - this will be replaced above with real authentication
+        // Change this instead to "startchat" - allow a thread to be started.
+        // Assign threadid securely - and only allow one chat call at a time
+        // on the thread.  Later on, can limit threads per user too for better rate
+        // limit control.
+
         // Authenticate the client
         ws.userId = message.userId;
         ws.threadId = message.threadId;
         this.sendMessage(ws, {
-          type: 'auth_success',
+          type: "auth_success",
           userId: message.userId,
           threadId: message.threadId,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         });
-        console.log(`🔐 Client authenticated: userId=${message.userId}, threadId=${message.threadId}`);
+        console.log(
+          `🔐 Client authenticated: userId=${message.userId}, threadId=${message.threadId}`
+        );
         break;
 
-      case 'chat':
+      case "chat":
         // Handle chat message
         if (!message.input || !ws.userId || !ws.threadId) {
-          this.sendError(ws, 'Missing required fields or not authenticated');
+          this.sendError(ws, "Missing required fields or not authenticated");
           return;
         }
 
-        console.log(`💬 Received chat message from userId=${ws.userId}, threadId=${ws.threadId}`);
-        
+        console.log(
+          `💬 Received chat message from userId=${ws.userId}, threadId=${ws.threadId}`
+        );
+
         try {
           // Run the agent
-          const response = await runAgent(message.input, ws.userId, ws.threadId);
-          
-          console.log(`🤖 Sending response to userId=${ws.userId}, threadId=${ws.threadId}`);
+          const response = await runAgent(
+            message.input,
+            ws.userId,
+            ws.threadId
+          );
+
+          console.log(
+            `🤖 Sending response to userId=${ws.userId}, threadId=${ws.threadId}`
+          );
 
           // Send the response
           this.sendMessage(ws, {
-            type: 'chat_response',
+            type: "chat_response",
             data: response,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
           });
         } catch (error) {
-          console.error('Error processing chat message:', error);
-          this.sendError(ws, 'Failed to process chat message');
+          console.error("Error processing chat message:", error);
+          this.sendError(ws, "Failed to process chat message");
         }
         break;
 
-      case 'ping':
+      case "ping":
         // Respond to ping
         this.sendMessage(ws, {
-          type: 'pong',
-          timestamp: new Date().toISOString()
+          type: "pong",
+          timestamp: new Date().toISOString(),
         });
         break;
 
       default:
-        this.sendError(ws, 'Unknown message type');
+        this.sendError(ws, "Unknown message type");
     }
   }
 
@@ -148,9 +169,9 @@ export class WebSocketManager {
 
   private sendError(ws: WebSocketClient, error: string): void {
     this.sendMessage(ws, {
-      type: 'error',
+      type: "error",
       error,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
   }
 
@@ -159,7 +180,7 @@ export class WebSocketManager {
     this.pingInterval = setInterval(() => {
       this.clients.forEach((ws) => {
         if (ws.isAlive === false) {
-          console.log('🔌 Terminating inactive WebSocket connection');
+          console.log("🔌 Terminating inactive WebSocket connection");
           this.clients.delete(ws);
           return ws.terminate();
         }
@@ -200,13 +221,13 @@ export class WebSocketManager {
     if (this.pingInterval) {
       clearInterval(this.pingInterval);
     }
-    
+
     this.clients.forEach((client) => {
       client.close();
     });
-    
+
     this.wss.close(() => {
-      console.log('🔴 WebSocket server closed');
+      console.log("🔴 WebSocket server closed");
     });
   }
 }

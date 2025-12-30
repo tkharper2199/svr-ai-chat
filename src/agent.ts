@@ -14,43 +14,45 @@ let agent: any;
  * @param input Input prompt
  * @param userId The user id
  * @param threadId The thread id
- * @returns The AI's structured response 
+ * @returns The AI's structured response
  */
-export async function runAgent(input: string, userId: string, threadId: string) {
-    if (!agent) {
-        throw new Error("Agent not initialized");
-    } 
-    const response = await agent.invoke(
-        { messages: [{ role: "user", content: input }] },
-        { context: { user_id: userId}, configurable: { thread_id: threadId } }
-    );  
+export async function runAgent(
+  input: string,
+  userId: string,
+  threadId: string
+) {
+  if (!agent) {
+    throw new Error("Agent not initialized");
+  }
+  const response = await agent.invoke(
+    { messages: [{ role: "user", content: input }] },
+    { context: { user_id: userId }, configurable: { thread_id: threadId } }
+  );
 
-    return response.structuredResponse;
+  return response.structuredResponse;
 }
 
 // Agent initialization
 async function init() {
-    // Configure model
-    const model = await initChatModel(
-        "claude-sonnet-4-5-20250929"
-    );
+  // Configure model
+  const model = await initChatModel("claude-sonnet-4-5-20250929");
 
-    // Define response format
-    const responseFormat = z.object({
-        text_response: z.string()
-    });
+  // Define response format
+  const responseFormat = z.object({
+    text_response: z.string(),
+  });
 
-    // Set up memory
-    const checkpointer = new MemorySaver();
+  // Set up memory
+  const checkpointer = new MemorySaver();
 
-    // Create agent
-    agent = createAgent({
-        model,
-        systemPrompt,
-        responseFormat,
-        checkpointer,
-        tools: [],
-    });
+  // Create agent
+  agent = createAgent({
+    model,
+    systemPrompt,
+    responseFormat,
+    checkpointer,
+    tools: [],
+  });
 }
 
 init().catch(console.error);
