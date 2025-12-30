@@ -1,4 +1,5 @@
 import express, { Request, Response, Application, NextFunction } from 'express';
+import { runAgent } from './agent';
 
 const app: Application = express();
 const PORT = process.env.PORT || 3000;
@@ -13,14 +14,19 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
-// TODO: add routes for chat box.
-app.get('/', (req: Request, res: Response) => {
-  res.json({
-    message: 'Hello World! Express.js + TypeScript Server is running!',
-    timestamp: new Date().toISOString(),
-    version: '1.0.0',
-    environment: process.env.NODE_ENV || 'development'
-  });
+// Route to invoke the AI agent
+app.post('/chat', async (req: Request, res: Response) => {
+  const { input, userId, threadId } = req.body;
+  if (!input || !userId || !threadId) {
+    return res.status(400).json({ error: 'Missing required fields.' });
+  }
+  try {
+    const response = await runAgent(input, userId, threadId);
+    res.json(response);
+  } catch (error) {
+    console.error('Error invoking agent:', error);
+    res.status(500).json({ error: 'Failed to invoke agent' });
+  }
 });
 
 // Health check endpoint
