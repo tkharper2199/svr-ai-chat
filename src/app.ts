@@ -84,7 +84,7 @@ if (process.env.NODE_ENV !== "test") {
     console.log(`📡 Server is running on http://localhost:${PORT}`);
     console.log(`🔌 WebSocket endpoint: ws://localhost:${PORT}/ws`);
     console.log(`📊 Health check: http://localhost:${PORT}/health`);
-    console.log(`🔧 Environment: ${process.env.NODE_ENV || "development"}`);
+    console.log(`🔧 Environment: ${process.env.NODE_ENV}`);
     console.log(`📦 Node.js version: ${process.version}`);
     console.log("=".repeat(50));
   });

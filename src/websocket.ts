@@ -1,17 +1,17 @@
 import { WebSocket, WebSocketServer } from "ws";
 import { Server } from "http";
 import { runAgent } from "./agent";
+import { authenticateClient, Principal } from "./auth";
+import * as cookie from "cookie"
 
 interface WebSocketClient extends WebSocket {
-  userId?: string;
-  threadId?: string;
   isAlive?: boolean;
+  principal?: Principal;
 }
 
 interface ChatMessage {
   type: "chat";
   input: string;
-  userId: string;
   threadId: string;
 }
 
@@ -19,14 +19,8 @@ interface PingMessage {
   type: "ping";
 }
 
-interface AuthMessage {
-  type: "auth";
-  userId: string;
-  threadId: string;
-}
 
-type ClientMessage = ChatMessage | PingMessage | AuthMessage;
-
+type ClientMessage = ChatMessage | PingMessage;
 export class WebSocketManager {
   private wss: WebSocketServer;
   private clients: Set<WebSocketClient> = new Set();
@@ -40,8 +34,23 @@ export class WebSocketManager {
 
   private setupWebSocketServer(): void {
     this.wss.on("connection", (ws: WebSocketClient, incoming) => {
-      // TODO: Authentication logic here (using incoming param for headers/cookies)
-      // support mock mode for this - might be all we do for starters.
+      // Extract cookies from headers for authentication
+      let rawcookies = incoming.headers["cookie"] || "";
+      if (rawcookies === "") {
+        console.log("🔒 Unauthorized WebSocket connection attempt - no token provided");
+        ws.close(1008, "Unauthorized");
+        return;
+      }
+      let cookies = cookie.parse(rawcookies);
+      // Authenticate the client
+      let principal = authenticateClient(cookies["auth_token"]);
+      if (!principal) {
+        console.log("🔒 Unauthorized WebSocket connection attempt - principal not recognized")
+        ws.close(1008, "Unauthorized")
+        return
+      };
+      // Associated the principal with the WebSocket connection
+      ws.principal = principal;
 
       console.log("🔌 New WebSocket connection established");
       ws.isAlive = true;
@@ -87,53 +96,33 @@ export class WebSocketManager {
     console.log("✅ WebSocket server initialized on /ws");
   }
 
+  // Handle different types of incoming messages
   private async handleMessage(
     ws: WebSocketClient,
     message: ClientMessage
   ): Promise<void> {
     switch (message.type) {
-      case "auth":
-        // TODO - this will be replaced above with real authentication
-        // Change this instead to "startchat" - allow a thread to be started.
-        // Assign threadid securely - and only allow one chat call at a time
-        // on the thread.  Later on, can limit threads per user too for better rate
-        // limit control.
-
-        // Authenticate the client
-        ws.userId = message.userId;
-        ws.threadId = message.threadId;
-        this.sendMessage(ws, {
-          type: "auth_success",
-          userId: message.userId,
-          threadId: message.threadId,
-          timestamp: new Date().toISOString(),
-        });
-        console.log(
-          `🔐 Client authenticated: userId=${message.userId}, threadId=${message.threadId}`
-        );
-        break;
-
       case "chat":
         // Handle chat message
-        if (!message.input || !ws.userId || !ws.threadId) {
+        if (!message.input || !ws.principal || !message.threadId) {
           this.sendError(ws, "Missing required fields or not authenticated");
           return;
         }
 
         console.log(
-          `💬 Received chat message from userId=${ws.userId}, threadId=${ws.threadId}`
+          `💬 Received chat message from userId=${ws.principal!.userId}, threadId=${message.threadId}`
         );
 
         try {
           // Run the agent
           const response = await runAgent(
             message.input,
-            ws.userId,
-            ws.threadId
+            ws.principal!.userId,
+            message.threadId
           );
 
           console.log(
-            `🤖 Sending response to userId=${ws.userId}, threadId=${ws.threadId}`
+            `🤖 Sending response to userId=${ws.principal!.userId}, threadId=${message.threadId}`
           );
 
           // Send the response
@@ -161,12 +150,14 @@ export class WebSocketManager {
     }
   }
 
+  // Utility to send messages to clients
   private sendMessage(ws: WebSocketClient, data: any): void {
     if (ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(data));
     }
   }
 
+  // Utility to send error messages to clients
   private sendError(ws: WebSocketClient, error: string): void {
     this.sendMessage(ws, {
       type: "error",
@@ -175,6 +166,7 @@ export class WebSocketManager {
     });
   }
 
+  // Start heartbeat mechanism to keep connections alive
   private startHeartbeat(): void {
     // Send ping every 30 seconds to keep connections alive
     this.pingInterval = setInterval(() => {
@@ -205,7 +197,7 @@ export class WebSocketManager {
   public sendToUser(userId: string, data: any): void {
     const message = JSON.stringify(data);
     this.clients.forEach((client) => {
-      if (client.userId === userId && client.readyState === WebSocket.OPEN) {
+      if (client.principal?.userId === userId && client.readyState === WebSocket.OPEN) {
         client.send(message);
       }
     });

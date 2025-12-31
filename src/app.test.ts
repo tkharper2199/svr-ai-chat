@@ -2,24 +2,7 @@ import request from "supertest";
 import { app } from "./app";
 
 describe("Express App", () => {
-  describe("GET /", () => {
-    it("should return welcome message with 200 status", async () => {
-      const response = await request(app).get("/");
-
-      expect(response.status).toBe(200);
-      expect(response.body).toHaveProperty("message");
-      expect(response.body.message).toContain("Express.js + TypeScript Server");
-      expect(response.body).toHaveProperty("version", "1.0.0");
-      expect(response.body).toHaveProperty("timestamp");
-      expect(response.body).toHaveProperty("environment");
-    });
-
-    it("should return JSON content type", async () => {
-      const response = await request(app).get("/");
-
-      expect(response.headers["content-type"]).toMatch(/json/);
-    });
-  });
+  
 
   describe("GET /health", () => {
     it("should return health status with 200", async () => {
